@@ -1,9 +1,31 @@
 name: JUP Trading Bot
 
 on:
+  # Automatic schedule: every 5 minutes
   schedule:
     - cron: '*/15 * * * *'
+  
+  # MANUAL TRIGGER: Allows you to run from GitHub UI
   workflow_dispatch:
+    inputs:
+      log_level:
+        description: 'Log level'
+        required: true
+        default: 'info'
+        type: choice
+        options:
+        - info
+        - debug
+      tags:
+        description: 'Test scenario tags'
+        required: false
+        type: boolean
+      environment:
+        description: 'Environment to run in'
+        type: environment
+        required: false
+  
+  # Trigger on code push (optional)
   push:
     branches: [ main ]
 
