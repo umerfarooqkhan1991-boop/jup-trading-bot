@@ -1,0 +1,91 @@
+name: JUP Trading Bot
+
+on:
+  # Run every 15 minutes
+  schedule:
+    - cron: '*/15 * * * *'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install packages
+      run: |
+        pip install ccxt pandas ta requests
+    
+    - name: Run JUP Bot
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      run: |
+        python -c "
+import os, pandas as pd, requests, ccxt
+from ta.momentum import RSIIndicator, StochasticOscillator
+import datetime
+
+print('🎯 JUP Bot Started on GitHub Actions')
+print('=' * 50)
+
+try:
+    # Get Discord webhook
+    webhook = os.environ.get('DISCORD_WEBHOOK')
+    
+    # Get data from OKX
+    exchange = ccxt.okx({'options': {'defaultType': 'swap'}})
+    data = exchange.fetch_ohlcv('JUP/USDT:USDT', '5m', limit=100)
+    
+    # Process data
+    df = pd.DataFrame(data, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
+    df['close'] = pd.to_numeric(df['close'])
+    
+    # Calculate RSI
+    df['rsi'] = RSIIndicator(df['close'], window=14).rsi()
+    
+    # Calculate Stochastic
+    stoch = StochasticOscillator(df['high'], df['low'], df['close'], window=14)
+    df['stoch_k'] = stoch.stoch()
+    
+    # Get current values
+    price = df['close'].iloc[-1]
+    rsi = df['rsi'].iloc[-1]
+    stoch_k = df['stoch_k'].iloc[-1]
+    
+    print(f'💰 Price: ${price:.4f}')
+    print(f'📉 RSI: {rsi:.2f}')
+    print(f'📊 Stochastic: {stoch_k:.2f}')
+    
+    # Check alerts
+    if rsi < 30 and stoch_k < 20:
+        msg = f'🚨 JUP OVERSOLD! Price: ${price:.4f}, RSI: {rsi:.2f}, Stoch: {stoch_k:.2f}'
+        if webhook:
+            requests.post(webhook, json={'content': msg})
+            print('✅ OVERSOLD alert sent to Discord')
+        else:
+            print('❌ No Discord webhook configured')
+    elif rsi > 70 and stoch_k > 80:
+        msg = f'🚨 JUP OVERBOUGHT! Price: ${price:.4f}, RSI: {rsi:.2f}, Stoch: {stoch_k:.2f}'
+        if webhook:
+            requests.post(webhook, json={'content': msg})
+            print('✅ OVERBOUGHT alert sent to Discord')
+        else:
+            print('❌ No Discord webhook configured')
+    else:
+        print('✅ No alerts triggered')
+        
+except Exception as e:
+    print(f'❌ Error: {e}')
+
+print('=' * 50)
+print('✅ Bot execution completed')
+"
