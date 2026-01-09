@@ -1,8 +1,10 @@
-name: JUP Bot
+name: JUP Trading Bot
+
 on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
+
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -11,22 +13,27 @@ jobs:
         with:
           python-version: '3.9'
       - run: pip install requests
-      - run: |
+      - name: Run JUP Bot
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
           python3 -c "
 import os, requests, random
 wh = os.environ.get('DISCORD_WEBHOOK')
 price = round(random.uniform(0.80, 0.90), 4)
 rsi = round(random.uniform(20, 80), 2)
 stoch = round(random.uniform(20, 80), 2)
-print(f'JUP: ${price}, RSI: {rsi}, Stoch: {stoch}')
+print('JUP: $' + str(price) + ', RSI: ' + str(rsi) + ', Stoch: ' + str(stoch))
 if rsi < 30 and stoch < 20:
-    msg = f'JUP OVERSOLD! ${price}, RSI: {rsi}, Stoch: {stoch}'
+    msg = 'JUP OVERSOLD! $' + str(price) + ', RSI: ' + str(rsi) + ', Stoch: ' + str(stoch)
     print(msg)
-    if wh: requests.post(wh, json={'content': msg})
+    if wh:
+        requests.post(wh, json={'content': msg})
 elif rsi > 70 and stoch > 80:
-    msg = f'JUP OVERBOUGHT! ${price}, RSI: {rsi}, Stoch: {stoch}'
+    msg = 'JUP OVERBOUGHT! $' + str(price) + ', RSI: ' + str(rsi) + ', Stoch: ' + str(stoch)
     print(msg)
-    if wh: requests.post(wh, json={'content': msg})
+    if wh:
+        requests.post(wh, json={'content': msg})
 else:
     print('No alerts')
 print('Done')
