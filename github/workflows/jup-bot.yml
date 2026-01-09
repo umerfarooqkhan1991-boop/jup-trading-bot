@@ -1,0 +1,47 @@
+name: JUP Trading Bot
+
+on:
+  # Runs every 15 minutes, 24/7
+  schedule:
+    - cron: '*/15 * * * *'
+  
+  # Manual trigger option
+  workflow_dispatch:
+  
+  # Run on push to main branch (for testing)
+  push:
+    branches: [ main ]
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5  # Maximum runtime
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run JUP Trading Bot
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      run: |
+        python jup_bot.py
+    
+    - name: Upload logs (if failed)
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: bot-logs
+        path: |
+          *.log
+        retention-days: 1
