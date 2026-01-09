@@ -1,20 +1,70 @@
 name: JUP Trading Bot
-
 on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
-
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.10'
       - run: pip install requests
       - name: Run JUP Bot
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          python3 -c "import os, requests, random; wh = os.environ.get('DISCORD_WEBHOOK'); price = round(random.uniform(0.80, 0.90), 4); rsi = round(random.uniform(20, 80), 2); stoch = round(random.uniform(20, 80), 2); print('JUP: $' + str(price) + ', RSI: ' + str(rsi) + ', Stoch: ' + str(stoch)); if rsi < 30 and stoch < 20: msg = 'JUP OVERSOLD! $' + str(price) + ', RSI: ' + str(rsi) + ', Stoch: ' + str(stoch); print(msg); if wh: requests.post(wh, json={'content': msg}); elif rsi > 70 and stoch > 80: msg = 'JUP OVERBOUGHT! $' + str(price) + ', RSI: ' + str(rsi) + ', Stoch: ' + str(stoch); print(msg); if wh: requests.post(wh, json={'content': msg}); else: print('No alerts'); print('Done')"
+          python3 -c "
+import os
+import requests
+import random
+import time
+
+print('JUP BOT START')
+print('Time: ' + time.strftime('%Y-%m-%d %H:%M:%S'))
+
+webhook = os.environ.get('DISCORD_WEBHOOK')
+if webhook:
+    print('Discord webhook configured')
+else:
+    print('No Discord webhook')
+
+price = round(random.uniform(0.80, 0.90), 4)
+rsi = round(random.uniform(20, 80), 2)
+stoch = round(random.uniform(20, 80), 2)
+
+print('JUP Price: $' + str(price))
+print('RSI: ' + str(rsi))
+print('Stochastic: ' + str(stoch))
+
+alert_triggered = False
+message = ''
+
+if rsi < 30 and stoch < 20:
+    message = 'JUP OVERSOLD ALERT! Price: $' + str(price) + ', RSI: ' + str(rsi) + ', Stochastic: ' + str(stoch)
+    alert_triggered = True
+    alert_type = 'OVERSOLD'
+elif rsi > 70 and stoch > 80:
+    message = 'JUP OVERBOUGHT ALERT! Price: $' + str(price) + ', RSI: ' + str(rsi) + ', Stochastic: ' + str(stoch)
+    alert_triggered = True
+    alert_type = 'OVERBOUGHT'
+else:
+    message = 'JUP Status: Price: $' + str(price) + ', RSI: ' + str(rsi) + ', Stochastic: ' + str(stoch)
+    alert_type = 'STATUS'
+
+if webhook:
+    try:
+        response = requests.post(webhook, json={'content': message}, timeout=5)
+        if response.status_code == 204:
+            print(alert_type + ' message sent to Discord')
+        else:
+            print('Discord error: ' + str(response.status_code))
+    except Exception as e:
+        print('Failed to send to Discord: ' + str(e))
+else:
+    print(alert_type + ' Message: ' + message)
+
+print('JUP BOT END')
+print('Bot execution completed successfully')
+"
