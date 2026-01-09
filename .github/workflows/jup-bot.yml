@@ -27,7 +27,7 @@ jobs:
         DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
       run: |
         python -c "
-print('🤖 Starting JUP Bot...')
+print('Starting JUP Bot...')
 print('=' * 50)
 
 # Import inside Python - will work on GitHub
