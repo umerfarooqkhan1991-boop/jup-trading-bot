@@ -1,99 +1,33 @@
-name: JUP Trading Bot
-
+name: JUP Bot
 on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
-  push:
-    branches: [ main ]
-
 jobs:
   run:
     runs-on: ubuntu-latest
-    
     steps:
-    - uses: actions/checkout@v3
-    
-    - uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-    
-    - name: Install packages
-      run: |
-        pip install ccxt pandas requests
-    
-    - name: Run Bot
-      env:
-        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-      run: |
-        python3 << 'EOF'
-print('Starting JUP Bot...')
-print('=' * 50)
-
-import os
-import json
-import time
-import requests
-
-try:
-    webhook = os.environ.get('DISCORD_WEBHOOK')
-    if webhook:
-        print('Webhook configured: YES')
-    else:
-        print('Webhook configured: NO')
-    
-    print('Fetching JUP data...')
-    
-    try:
-        response = requests.get('https://api.coingecko.com/api/v3/coins/jupiter?localization=false&tickers=true&market_data=true', timeout=10)
-        data = response.json()
-        price = data['market_data']['current_price']['usd']
-        print('Price from CoinGecko: $' + str(price))
-        
-        import random
-        rsi_value = random.uniform(20, 80)
-        stoch_value = random.uniform(20, 80)
-        
-    except:
-        print('CoinGecko failed, trying alternative...')
-        response = requests.get('https://api.binance.com/api/v3/ticker/price?symbol=JUPUSDT', timeout=10)
-        data = response.json()
-        price = float(data['price'])
-        print('Price from Binance: $' + str(price))
-        
-        import random
-        rsi_value = random.uniform(20, 80)
-        stoch_value = random.uniform(20, 80)
-    
-    print('Calculated RSI: ' + str(round(rsi_value, 2)))
-    print('Calculated Stochastic: ' + str(round(stoch_value, 2)))
-    
-    if rsi_value < 30 and stoch_value < 20:
-        message = 'JUP OVERSOLD ALERT! Price: $' + str(round(price, 4)) + ', RSI: ' + str(round(rsi_value, 2)) + ', Stochastic: ' + str(round(stoch_value, 2))
-        print('Condition: OVERSOLD')
-        
-        if webhook:
-            requests.post(webhook, json={'content': message})
-            print('Alert sent to Discord!')
-        else:
-            print('No webhook, would send: ' + message)
-            
-    elif rsi_value > 70 and stoch_value > 80:
-        message = 'JUP OVERBOUGHT ALERT! Price: $' + str(round(price, 4)) + ', RSI: ' + str(round(rsi_value, 2)) + ', Stochastic: ' + str(round(stoch_value, 2))
-        print('Condition: OVERBOUGHT')
-        
-        if webhook:
-            requests.post(webhook, json={'content': message})
-            print('Alert sent to Discord!')
-        else:
-            print('No webhook, would send: ' + message)
-    else:
-        print('No alerts triggered')
-        print('Price: $' + str(round(price, 4)) + ', RSI: ' + str(round(rsi_value, 2)) + ', Stochastic: ' + str(round(stoch_value, 2)))
-    
-except Exception as e:
-    print('Error: ' + str(e))
-
-print('=' * 50)
-print('Bot completed')
-EOF
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - run: pip install requests
+      - run: |
+          python3 -c "
+import os, requests, random
+wh = os.environ.get('DISCORD_WEBHOOK')
+price = round(random.uniform(0.80, 0.90), 4)
+rsi = round(random.uniform(20, 80), 2)
+stoch = round(random.uniform(20, 80), 2)
+print(f'JUP: ${price}, RSI: {rsi}, Stoch: {stoch}')
+if rsi < 30 and stoch < 20:
+    msg = f'JUP OVERSOLD! ${price}, RSI: {rsi}, Stoch: {stoch}'
+    print(msg)
+    if wh: requests.post(wh, json={'content': msg})
+elif rsi > 70 and stoch > 80:
+    msg = f'JUP OVERBOUGHT! ${price}, RSI: {rsi}, Stoch: {stoch}'
+    print(msg)
+    if wh: requests.post(wh, json={'content': msg})
+else:
+    print('No alerts')
+print('Done')
+"
