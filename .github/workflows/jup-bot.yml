@@ -26,7 +26,7 @@ jobs:
       env:
         DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
       run: |
-        python3 -c "
+        python3 << 'EOF'
 print('Starting JUP Bot...')
 print('=' * 50)
 
@@ -37,7 +37,10 @@ import requests
 
 try:
     webhook = os.environ.get('DISCORD_WEBHOOK')
-    print('Webhook configured: ' + ('YES' if webhook else 'NO'))
+    if webhook:
+        print('Webhook configured: YES')
+    else:
+        print('Webhook configured: NO')
     
     print('Fetching JUP data...')
     
@@ -93,4 +96,4 @@ except Exception as e:
 
 print('=' * 50)
 print('Bot completed')
-"
+EOF
