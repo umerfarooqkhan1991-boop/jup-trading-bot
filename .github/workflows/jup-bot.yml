@@ -1,12 +1,11 @@
 name: JUP Trading Bot
 
 on:
-  # Run every 15 minutes
   schedule:
     - cron: '*/15 * * * *'
-  
-  # Allow manual trigger
   workflow_dispatch:
+  push:
+    branches: [ main ]
 
 jobs:
   run-bot:
@@ -21,7 +20,7 @@ jobs:
       with:
         python-version: '3.9'
     
-    - name: Install packages
+    - name: Install ALL required packages
       run: |
         pip install ccxt pandas ta requests
     
@@ -30,30 +29,47 @@ jobs:
         DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
       run: |
         python -c "
-import os, pandas as pd, requests, ccxt
+import os
+import pandas as pd
+import requests
+import ccxt
 from ta.momentum import RSIIndicator, StochasticOscillator
 import datetime
 
-print('🎯 JUP Bot Started on GitHub Actions')
+print('🎯 JUP Bot Started')
 print('=' * 50)
 
 try:
-    # Get Discord webhook
+    # Get webhook from environment
     webhook = os.environ.get('DISCORD_WEBHOOK')
     
-    # Get data from OKX
-    exchange = ccxt.okx({'options': {'defaultType': 'swap'}})
-    data = exchange.fetch_ohlcv('JUP/USDT:USDT', '5m', limit=100)
+    # Initialize OKX exchange
+    exchange = ccxt.okx({
+        'options': {
+            'defaultType': 'swap'  # For perpetual futures
+        }
+    })
     
-    # Process data
-    df = pd.DataFrame(data, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
+    # Fetch JUP data
+    data = exchange.fetch_ohlcv('JUP/USDT:USDT', '15m', limit=100)
+    
+    # Create DataFrame
+    df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['close'] = pd.to_numeric(df['close'])
+    df['high'] = pd.to_numeric(df['high'])
+    df['low'] = pd.to_numeric(df['low'])
     
     # Calculate RSI
     df['rsi'] = RSIIndicator(df['close'], window=14).rsi()
     
-    # Calculate Stochastic
-    stoch = StochasticOscillator(df['high'], df['low'], df['close'], window=14)
+    # Calculate Stochastic RSI
+    stoch = StochasticOscillator(
+        high=df['high'],
+        low=df['low'],
+        close=df['close'],
+        window=14,
+        smooth_window=3
+    )
     df['stoch_k'] = stoch.stoch()
     
     # Get current values
@@ -61,31 +77,34 @@ try:
     rsi = df['rsi'].iloc[-1]
     stoch_k = df['stoch_k'].iloc[-1]
     
+    print(f'⏰ Time: {datetime.datetime.now().strftime(\"%H:%M:%S\")}')
     print(f'💰 Price: ${price:.4f}')
     print(f'📉 RSI: {rsi:.2f}')
     print(f'📊 Stochastic: {stoch_k:.2f}')
     
     # Check alerts
     if rsi < 30 and stoch_k < 20:
-        msg = f'🚨 JUP OVERSOLD! Price: ${price:.4f}, RSI: {rsi:.2f}, Stoch: {stoch_k:.2f}'
+        message = f'🚨 JUP OVERSOLD!\nPrice: ${price:.4f}\nRSI: {rsi:.2f}\nStochastic: {stoch_k:.2f}'
         if webhook:
-            requests.post(webhook, json={'content': msg})
+            requests.post(webhook, json={'content': message})
             print('✅ OVERSOLD alert sent to Discord')
         else:
             print('❌ No Discord webhook configured')
     elif rsi > 70 and stoch_k > 80:
-        msg = f'🚨 JUP OVERBOUGHT! Price: ${price:.4f}, RSI: {rsi:.2f}, Stoch: {stoch_k:.2f}'
+        message = f'🚨 JUP OVERBOUGHT!\nPrice: ${price:.4f}\nRSI: {rsi:.2f}\nStochastic: {stoch_k:.2f}'
         if webhook:
-            requests.post(webhook, json={'content': msg})
+            requests.post(webhook, json={'content': message})
             print('✅ OVERBOUGHT alert sent to Discord')
         else:
             print('❌ No Discord webhook configured')
     else:
         print('✅ No alerts triggered')
-        
+    
+    print('=' * 50)
+    print('✅ Bot execution completed successfully')
+    
 except Exception as e:
-    print(f'❌ Error: {e}')
-
-print('=' * 50)
-print('✅ Bot execution completed')
+    print(f'❌ Error occurred: {e}')
+    print('=' * 50)
+    print('❌ Bot failed')
 "
