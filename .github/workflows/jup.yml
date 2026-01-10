@@ -2,13 +2,13 @@ name: JUP Trading Bot
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # Every 5 minutes
+    - cron: '*/5 * * * *'  # Every 5 minutes
   workflow_dispatch:        # Manual trigger
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     
     steps:
       - uses: actions/checkout@v3
